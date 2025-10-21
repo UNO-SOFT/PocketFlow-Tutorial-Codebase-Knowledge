@@ -1,4 +1,4 @@
-from google import genai
+#!/usr/bin/env python3
 import os
 import logging
 import json
@@ -23,7 +23,7 @@ logger.addHandler(file_handler)
 
 # Simple cache configuration
 cache_file = "llm_cache.json"
-
+__generate = None
 
 # By default, we Google Gemini 2.5 pro, as it shows great performance for code understanding
 def call_llm(prompt: str, use_cache: bool = True) -> str:
@@ -55,14 +55,34 @@ def call_llm(prompt: str, use_cache: bool = True) -> str:
     # )
 
     # You can comment the previous line and use the AI Studio key instead:
-    client = genai.Client(
-        api_key=os.getenv("GEMINI_API_KEY", ""),
-    )
-    model = os.getenv("GEMINI_MODEL", "gemini-2.5-pro")
+    global __generate
+    generate = __generate
+    if generate is None:
+        if 'OLLAMA_URL' in os.environ:
+            import ollama
+            model = os.getenv("OLLAMA_MODEL", "llama3.1:8b-instruct-q4_K_M")
+            client = ollama.Client(host=os.getenv('OLLAMA_URL'))
+            print(f"Use OLLAMA={client} model={model}")
+            def gen(prompt):
+                return client.generate(model=model, prompt=prompt).response
+            __generate = gen
+        elif 'GEMINI_API_KEY' in os.environ:
+            from google import genai
+            client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+            model = os.getenv("GEMINI_MODEL", "gemini-2.5-pro")
+            print(f"Use GEMINI model={model}")
+            def gen(prompt):
+                return client.models.generate_content(model=model, contents=[prompt]).text
+            __generate = gen
+        else:
+            raise ValueError('no model configured')
+        #
+        generate = __generate
+        
     # model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
     
-    response = client.models.generate_content(model=model, contents=[prompt])
-    response_text = response.text
+    # response = client.models.generate_content(model=model, contents=[prompt])
+    response_text = generate(prompt)
 
     # Log the response
     logger.info(f"RESPONSE: {response_text}")

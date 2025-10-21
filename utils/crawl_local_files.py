@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import os
 import fnmatch
 import pathspec
@@ -66,6 +67,7 @@ def crawl_local_files(
 
     total_files = len(all_files)
     processed_files = 0
+    # print(f"total_files: {all_files}")
 
     for filepath in all_files:
         relpath = os.path.relpath(filepath, directory) if use_relative_paths else filepath
@@ -112,13 +114,16 @@ def crawl_local_files(
             continue # Skip large files
 
         # --- File is being processed ---        
-        try:
-            with open(filepath, "r", encoding="utf-8-sig") as f:
-                content = f.read()
-            files_dict[relpath] = content
-        except Exception as e:
-            print(f"Warning: Could not read file {filepath}: {e}")
-            status = "skipped (read error)"
+        for encoding in ('utf-8-sig', 'iso8859-2'):
+            try:
+                with open(filepath, "r", encoding=encoding) as f:
+                    content = f.read()
+                files_dict[relpath] = content
+                status = 'processed'
+                break
+            except Exception as e:
+                print(f"Warning: Could not read file {filepath}: {e}")
+                status = "skipped (read error)"
 
         # --- Print progress for processed or error files ---
         if total_files > 0:
